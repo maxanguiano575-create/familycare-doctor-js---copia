@@ -1,0 +1,172 @@
+.login-page {
+  background-color: #f0f2f5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 40px;
+  background-color: #00C3A5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.logo-container img {
+  height: 60px;
+}
+
+.login-icons {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 20px;
+  color: white;
+}
+
+.profile-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: #ffffff;
+  margin-top: 80px;
+  padding: 40px;
+  width: 420px;
+  border-radius: 16px;
+  box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.1);
+  text-align: left;
+}
+
+.login-card h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #02475e;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+
+.form-row label {
+  margin-bottom: 6px;
+  color: #333;
+  font-weight: 500;
+}
+
+.form-row input {
+  padding: 10px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: all 0.2s ease-in-out;
+}
+
+.form-row input:focus {
+  outline: none;
+  border-color: #00C3A5;
+  box-shadow: 0 0 4px rgba(0, 195, 165, 0.3);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 25px;
+  gap: 10px;
+}
+
+.btn-cancel {
+  background-color: #e6e6e6;
+  color: #333;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-cancel:hover {
+  background-color: #d4d4d4;
+}
+
+.btn-secondary {
+  background-color: white;
+  color: #00C3A5;
+  padding: 10px 18px;
+  border: 2px solid #00C3A5;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-secondary:hover {
+  background-color: #00C3A5;
+  color: white;
+}
+
+.btn-save {
+  background-color: #00C3A5;
+  color: white;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-save:hover {
+  background-color: #009d8a;
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    width: 90%;
+    padding: 30px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn-cancel,
+  .btn-save,
+  .btn-secondary {
+    width: 100%;
+  }
+}
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  border-left: 4px solid #c62828;
+}
+
+.login-hint {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.login-hint p {
+  margin: 5px 0;
+}
