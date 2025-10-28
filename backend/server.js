@@ -73,7 +73,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    // Verificar contraseña (sin bcrypt por ahora)
+    // Verificar contraseña (sin bcrypt)
     const passwordField = user.Contraseña || user.Contrasena;
     if (passwordField !== password) {
       return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
@@ -176,7 +176,7 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'El usuario ya existe' });
     }
 
-    // SIN hash de contraseña por ahora
+    // SIN hash de contraseña
     const result = await conn.query(
       `INSERT INTO usuarios (Nombre, Apellidos, Correo, Contrasena, Telefono, Fecha_Nacimiento, Sexo, Tipo_Usuario) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
