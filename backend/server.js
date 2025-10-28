@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const mariadb = require('mariadb');
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const app = express();
@@ -74,7 +73,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    // Verificar contraseña (compatible con ambos)
+    // Verificar contraseña (sin bcrypt por ahora)
     const passwordField = user.Contraseña || user.Contrasena;
     if (passwordField !== password) {
       return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
@@ -159,7 +158,7 @@ app.post('/api/registrarse', async (req, res) => {
   }
 });
 
-// ✅ RUTA DE REGISTRO USUARIO (Android)
+// ✅ RUTA DE REGISTRO USUARIO (Android) - SIN BCRYPT
 app.post('/api/register', async (req, res) => {
   let conn;
   try {
@@ -177,13 +176,11 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'El usuario ya existe' });
     }
 
-    // Hash de contraseña para Android
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // SIN hash de contraseña por ahora
     const result = await conn.query(
       `INSERT INTO usuarios (Nombre, Apellidos, Correo, Contrasena, Telefono, Fecha_Nacimiento, Sexo, Tipo_Usuario) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nombre, apellidos, email, hashedPassword, telefono || null, fechaNacimiento, sexo, tipoUsuario || 'Paciente']
+      [nombre, apellidos, email, password, telefono || null, fechaNacimiento, sexo, tipoUsuario || 'Paciente']
     );
 
     // Generar token para Android
