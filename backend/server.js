@@ -1,55 +1,43 @@
 const express = require('express');
 const cors = require('cors');
 const mariadb = require('mariadb');
-const jwt = require('jsonwebtoken');
 
 const app = express();
-const JWT_SECRET = 'familycare_secret_key_2024';
 
-// ✅ CORS MEJORADO PARA WEB + ANDROID + LOCALHOST
+// ✅ CORS MEJORADO - PERMITE TODOS LOS ORIGENES
 app.use(cors({
-    origin: ['http://localhost:8081', 'http://10.0.2.2:8081', '*'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: false
 }));
+
+// Manejar preflight requests explícitamente
+app.options('*', cors());
 
 app.use(express.json());
 
-// ✅ CONFIGURACIÓN PARA RAILWAY + LOCAL
+// ✅ CONFIGURACIÓN PARA RAILWAY + LOCAL (SIMPLIFICADA)
 const pool = mariadb.createPool({
-  host: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1', 
-  user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
-  password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
-  database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'familycarecircledb',
-  port: process.env.MYSQLPORT || process.env.DB_PORT || 3306,
-  ssl: (process.env.MYSQLHOST || process.env.DB_HOST) ? { rejectUnauthorized: false } : false,
+  host: process.env.MYSQLHOST || '127.0.0.1', 
+  user: process.env.MYSQLUSER || 'root',
+  password: process.env.MYSQLPASSWORD || '',
+  database: process.env.MYSQLDATABASE || 'familycarecircledb',
+  port: process.env.MYSQLPORT || 3306,
+  ssl: process.env.MYSQLHOST ? { rejectUnauthorized: false } : false,
   connectionLimit: 5,
   bigIntAsNumber: true
 });
-
-// ✅ MIDDLEWARE DE AUTENTICACIÓN (para Android)
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ success: false, error: 'Token de acceso requerido' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ success: false, error: 'Token inválido' });
-    }
-    req.user = user;
-    next();
-  });
-};
 
 // ✅ RUTA DE LOGIN ÚNICA (funciona para Web y Android)
 app.post('/api/login', async (req, res) => {
   let conn;
   try {
     const { email, password } = req.body;
+    
+    // ✅ HEADERS CORS EXPLÍCITOS
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     
     conn = await pool.getConnection();
     
@@ -85,18 +73,6 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Generar token (para Android)
-    const token = jwt.sign(
-      { 
-        userId: Number(user.ID_Medico || user.ID_Usuario),
-        email: user.Correo,
-        nombre: user.Nombre,
-        role: userType
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
     // Respuesta compatible con ambos
     const responseData = {
       success: true,
@@ -108,12 +84,6 @@ app.post('/api/login', async (req, res) => {
         specialty: user.Especialidad || 'Paciente'
       }
     };
-
-    // Agregar token para Android
-    if (req.headers['user-agent']?.includes('Android') || req.body.source === 'android') {
-      responseData.token = token;
-      responseData.message = 'Login exitoso';
-    }
 
     res.json(responseData);
 
@@ -142,20 +112,16 @@ app.post('/api/registrarse', async (req, res) => {
     const email = req.body.email || req.body.correo;
     const password = req.body.password || req.body.contraseña;
 
-    console.log('🔧 Datos procesados médico:', {
-      nombre, apellidos, especialidad, cedula, telefono, email, password
-    });
+    // ✅ HEADERS CORS
+    res.header('Access-Control-Allow-Origin', '*');
 
     conn = await pool.getConnection();
-    console.log('✅ Conexión a BD establecida');
 
     // Verificar si ya existe el correo
     const existeCorreo = await conn.query(
       "SELECT * FROM medicos WHERE correo = ?",
       [email]
     );
-
-    console.log('🔍 Resultado de búsqueda de correo:', existeCorreo.length);
 
     if (existeCorreo.length > 0) {
       return res.status(400).json({
@@ -170,8 +136,6 @@ app.post('/api/registrarse', async (req, res) => {
       [cedula]
     );
 
-    console.log('🔍 Resultado de búsqueda de cédula:', existeCedula.length);
-
     if (existeCedula.length > 0) {
       return res.status(400).json({
         success: false,
@@ -180,7 +144,6 @@ app.post('/api/registrarse', async (req, res) => {
     }
 
     // ✅ INSERT CORREGIDO - SIN Horario_Consulta y Estado
-    console.log('📝 Insertando nuevo médico...');
     const result = await conn.query(
       `INSERT INTO medicos 
        (nombre, apellidos, especialidad, Cedula_Profesional, telefono, correo, contraseña)
@@ -195,8 +158,6 @@ app.post('/api/registrarse', async (req, res) => {
         password
       ]
     );
-
-    console.log('✅ Médico insertado con ID:', result.insertId);
 
     const responseData = {
       success: true,
@@ -213,14 +174,11 @@ app.post('/api/registrarse', async (req, res) => {
       message: 'Error del servidor: ' + err.message
     });
   } finally {
-    if (conn) {
-      conn.release();
-      console.log('🔓 Conexión liberada');
-    }
+    if (conn) conn.release();
   }
 });
 
-// ✅ RUTA DE REGISTRO USUARIO (Android) - RESPETANDO ESTRUCTURA ANDROID
+// ✅ RUTA DE REGISTRO USUARIO (Android) - SIN JWT NI BCRYPT
 app.post('/api/register', async (req, res) => {
   let conn;
   try {
@@ -228,11 +186,14 @@ app.post('/api/register', async (req, res) => {
     
     const { nombre, apellidos, email, password, telefono, fechaNacimiento, sexo, tipoUsuario } = req.body;
 
+    // ✅ HEADERS CORS
+    res.header('Access-Control-Allow-Origin', '*');
+
     // Validaciones (estructura Android)
-    if (!nombre || !apellidos || !email || !password || !fechaNacimiento || !tipoUsuario) {
+    if (!nombre || !apellidos || !email || !password) {
       return res.status(400).json({ 
         success: false,
-        error: 'Nombre, apellidos, email, password, fecha de nacimiento y tipo de usuario son requeridos' 
+        error: 'Nombre, apellidos, email y password son requeridos' 
       });
     }
 
@@ -255,51 +216,50 @@ app.post('/api/register', async (req, res) => {
     const result = await conn.query(
       `INSERT INTO usuarios (Nombre, Apellidos, Correo, Contrasena, Telefono, Fecha_Nacimiento, Sexo, Tipo_Usuario) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nombre, apellidos, email, password, telefono || null, fechaNacimiento, sexo, tipoUsuario]
+      [nombre, apellidos, email, password, telefono || null, fechaNacimiento || null, sexo || null, tipoUsuario || 'Paciente']
     );
 
-    // ✅ Convertir BigInt a Number (estructura Android)
     const userId = Number(result.insertId);
 
     console.log('✅ Usuario Android registrado con ID:', userId);
 
-    // Generar token para Android
-    const token = jwt.sign(
-      { 
-        userId: userId,
-        email: email,
-        nombre: nombre 
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
     res.status(201).json({ 
       success: true,
       message: 'Usuario registrado exitosamente',
-      userId: userId,
-      token: token
+      userId: userId
     });
 
   } catch (error) {
     console.error('💥 ERROR en registro Android:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Error interno del servidor'
+      error: 'Error interno del servidor: ' + error.message
     });
   } finally {
     if (conn) conn.release();
   }
 });
 
-// ✅ RUTA PARA OBTENER PERFIL (Android) - RESPETANDO ESTRUCTURA ANDROID
-app.get('/api/profile', authenticateToken, async (req, res) => {
+// ✅ RUTA PARA OBTENER PERFIL (Android) - SIN AUTENTICACIÓN POR AHORA
+app.get('/api/profile', async (req, res) => {
   let conn;
   try {
+    // ✅ HEADERS CORS
+    res.header('Access-Control-Allow-Origin', '*');
+    
+    const userId = req.query.userId;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'ID de usuario requerido' 
+      });
+    }
+
     conn = await pool.getConnection();
     const users = await conn.query(
       'SELECT ID_Usuario, Nombre, Apellidos, Correo, Telefono, Fecha_Nacimiento, Sexo, Tipo_Usuario FROM usuarios WHERE ID_Usuario = ?',
-      [req.user.userId]
+      [userId]
     );
 
     if (users.length === 0) {
@@ -310,13 +270,11 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
     }
 
     const user = users[0];
-    // Convertir BigInt a Number
-    const userId = Number(user.ID_Usuario);
 
     res.json({ 
       success: true, 
       user: {
-        id: userId,
+        id: Number(user.ID_Usuario),
         nombre: user.Nombre,
         apellidos: user.Apellidos,
         email: user.Correo,
@@ -341,6 +299,9 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 app.get('/api/medicos', async (req, res) => {
   let conn;
   try {
+    // ✅ HEADERS CORS
+    res.header('Access-Control-Allow-Origin', '*');
+    
     conn = await pool.getConnection();
     const medicos = await conn.query("SELECT * FROM medicos");
     
@@ -366,6 +327,7 @@ app.get('/api/medicos', async (req, res) => {
 
 // ✅ RUTAS DE VERIFICACIÓN (Ambos)
 app.get('/api/health', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
   res.json({ 
     success: true,
     message: '🚀 Servidor FamilyCare funcionando',
@@ -377,6 +339,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/test-db', async (req, res) => {
   let conn;
   try {
+    res.header('Access-Control-Allow-Origin', '*');
     conn = await pool.getConnection();
     await conn.query("SELECT 1 as test");
     res.json({ 
@@ -395,6 +358,7 @@ app.get('/api/test-db', async (req, res) => {
 
 // ✅ RUTA DE BIENVENIDA
 app.get('/', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
   res.json({ 
     message: '🚀 Servidor FamilyCare funcionando para Web y Android',
     environment: process.env.NODE_ENV || 'development',
@@ -409,7 +373,7 @@ app.get('/', (req, res) => {
       medicos: 'GET /api/medicos',
       // Android
       registerUser: 'POST /api/register',
-      profile: 'GET /api/profile',
+      profile: 'GET /api/profile?userId=ID',
       // Comunes
       health: 'GET /api/health',
       test: 'GET /api/test-db'
@@ -419,6 +383,7 @@ app.get('/', (req, res) => {
 
 // ✅ MANEJO DE ERRORES
 app.use('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
   res.status(404).json({ 
     success: false,
     error: 'Ruta no encontrada' 
@@ -429,20 +394,15 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log('=================================');
-  console.log('🚀 Servidor FamilyCare UNIFICADO');
+  console.log('🚀 Servidor FamilyCare CORREGIDO');
   console.log(`📍 Puerto: ${PORT}`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️ Base de datos: ${process.env.MYSQLHOST ? 'Railway MySQL' : 'Local'}`);
+  console.log('✅ CORS: Configurado para todos los orígenes');
+  console.log('✅ Dependencias: Solo express, cors, mariadb');
   console.log('✅ Web: POST /api/registrarse');
   console.log('✅ Android: POST /api/register');
   console.log('✅ Login: POST /api/login (ambos)');
   console.log('✅ LISTO PARA WEB Y ANDROID ✅');
   console.log('=================================');
-});
-
-// ✅ MANEJO GRACEFUL DE CIERRE
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Cerrando servidor...');
-  await pool.end();
-  process.exit(0);
 });
