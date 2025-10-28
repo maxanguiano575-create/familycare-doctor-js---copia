@@ -99,86 +99,67 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ✅ RUTA DE REGISTRO MÉDICO (Web) - RESPETANDO ESTRUCTURA ORIGINAL
-app.post('/api/registrarse', async (req, res) => {
+// ✅ RUTA DE REGISTRO USUARIO (Android) - CORREGIDO
+app.post('/api/register', async (req, res) => {
   let conn;
   try {
-    console.log('📨 Datos recibidos para registro médico:', req.body);
+    console.log('📥 Datos recibidos para registro Android:', req.body);
     
-    const nombre = req.body.nombre;
-    const apellidos = req.body.apellidos;
-    const especialidad = req.body.especialidad;
-    const cedula = req.body.cedula || req.body.Cedula_Profesional;
-    const telefono = req.body.telefono;
-    const email = req.body.email || req.body.correo;
-    const password = req.body.password || req.body.contraseña;
+    const { nombre, apellidos, email, password, telefono, fechaNacimiento, sexo, tipoUsuario } = req.body;
 
     // ✅ HEADERS CORS
     res.header('Access-Control-Allow-Origin', '*');
 
+    // Validaciones (estructura Android)
+    if (!nombre || !apellidos || !email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Nombre, apellidos, email y password son requeridos' 
+      });
+    }
+
     conn = await pool.getConnection();
 
-    // Verificar si ya existe el correo
-    const existeCorreo = await conn.query(
-      "SELECT * FROM medicos WHERE correo = ?",
+    // Verificar si el usuario ya existe
+    const existingUser = await conn.query(
+      'SELECT ID_Usuario FROM usuarios WHERE Correo = ?',
       [email]
     );
 
-    if (existeCorreo.length > 0) {
-      return res.status(400).json({
+    if (existingUser.length > 0) {
+      return res.status(400).json({ 
         success: false,
-        message: 'El correo ya está registrado.'
+        error: 'El usuario ya existe' 
       });
     }
 
-    // Verificar si ya existe la cédula profesional
-    const existeCedula = await conn.query(
-      "SELECT * FROM medicos WHERE Cedula_Profesional = ?",
-      [cedula]
-    );
-
-    if (existeCedula.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'La cédula profesional ya está registrada.'
-      });
-    }
-
-    // ✅ INSERT CORREGIDO - SIN Horario_Consulta y Estado
+    // ✅ INSERT CORREGIDO - "Contraseña" con ñ (NO Contrasena)
     const result = await conn.query(
-      `INSERT INTO medicos 
-       (nombre, apellidos, especialidad, Cedula_Profesional, telefono, correo, contraseña)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        nombre, 
-        apellidos, 
-        especialidad, 
-        cedula, 
-        telefono || null, 
-        email, 
-        password
-      ]
+      `INSERT INTO usuarios (Nombre, Apellidos, Correo, Contraseña, Telefono, Fecha_Nacimiento, Sexo, Tipo_Usuario) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nombre, apellidos, email, password, telefono || null, fechaNacimiento || null, sexo || null, tipoUsuario || 'Paciente']
     );
 
-    const responseData = {
+    const userId = Number(result.insertId);
+
+    console.log('✅ Usuario Android registrado con ID:', userId);
+
+    res.status(201).json({ 
       success: true,
-      message: 'Médico registrado correctamente',
-      id: Number(result.insertId)
-    };
+      message: 'Usuario registrado exitosamente',
+      userId: userId
+    });
 
-    res.json(responseData);
-
-  } catch (err) {
-    console.error('❌ Error al registrar médico:', err);
-    res.status(500).json({
+  } catch (error) {
+    console.error('💥 ERROR en registro Android:', error);
+    res.status(500).json({ 
       success: false,
-      message: 'Error del servidor: ' + err.message
+      error: 'Error interno del servidor: ' + error.message
     });
   } finally {
     if (conn) conn.release();
   }
 });
-
-// ✅ RUTA DE REGISTRO USUARIO (Android) - SIN JWT NI BCRYPT
 app.post('/api/register', async (req, res) => {
   let conn;
   try {
