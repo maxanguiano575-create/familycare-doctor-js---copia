@@ -50,7 +50,7 @@ export default function Registrarse() {
       
       // LLAMADA REAL A LA API - ESTO ES LO QUE FALTABA
      // LLAMADA REAL A LA API - ESTO ES LO QUE FALTABA
-const response = await fetch('http://localhost:3001/api/registrarse', {
+const response = await fetch('https://familycare-doctor-js-copia-production.up.railway.app/api/registrarse', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',

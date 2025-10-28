@@ -256,7 +256,163 @@ app.get('/', (req, res) => {
     }
   });
 });
+// ✅ RUTA TEMPORAL PARA INICIALIZAR BD COMPLETA (ejecutar una vez)
+app.get('/api/init-complete-db', async (req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    console.log('🗄️ Ejecutando script COMPLETO de base de datos...');
 
+    // TABLA USUARIOS
+    await conn.query(`CREATE TABLE IF NOT EXISTS usuarios (
+      ID_Usuario int(11) NOT NULL AUTO_INCREMENT,
+      Nombre varchar(100) NOT NULL,
+      Apellidos varchar(100) NOT NULL,
+      Fecha_Nacimiento date DEFAULT NULL,
+      Sexo enum('Masculino','Femenino') DEFAULT NULL,
+      Correo varchar(150) NOT NULL,
+      Telefono varchar(20) DEFAULT NULL,
+      Contraseña varchar(255) NOT NULL,
+      Tipo_Usuario enum('Paciente','Familiar') NOT NULL,
+      PRIMARY KEY (ID_Usuario),
+      UNIQUE KEY Correo (Correo)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // TABLA MEDICOS
+    await conn.query(`CREATE TABLE IF NOT EXISTS medicos (
+      ID_Medico int(11) NOT NULL AUTO_INCREMENT,
+      Nombre varchar(100) NOT NULL,
+      Apellidos varchar(100) NOT NULL,
+      Especialidad varchar(100) NOT NULL,
+      Cedula_Profesional varchar(50) NOT NULL,
+      Correo varchar(150) NOT NULL,
+      Telefono varchar(20) DEFAULT NULL,
+      Contraseña varchar(255) NOT NULL,
+      Horario_Consulta text DEFAULT NULL,
+      Estado enum('Activo','Inactivo') DEFAULT 'Activo',
+      PRIMARY KEY (ID_Medico),
+      UNIQUE KEY UQ_Medico_Correo (Correo),
+      UNIQUE KEY UQ_Medico_Cedula (Cedula_Profesional)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // TABLA RECETAS
+    await conn.query(`CREATE TABLE IF NOT EXISTS recetas (
+      ID_Receta int(11) NOT NULL AUTO_INCREMENT,
+      ID_Medico int(11) NOT NULL,
+      ID_Paciente int(11) NOT NULL,
+      Fecha_Emision date NOT NULL,
+      Fecha_Vencimiento date NOT NULL,
+      Diagnostico text NOT NULL,
+      Medicamentos text NOT NULL,
+      Dosis varchar(100) NOT NULL,
+      Frecuencia varchar(100) NOT NULL,
+      Horario time NOT NULL,
+      Duracion_Dias int(11) NOT NULL,
+      Instrucciones_Especificas text NOT NULL,
+      Via_Administracion varchar(50) DEFAULT NULL,
+      Estado enum('Activa','Completada','Vencida') DEFAULT 'Activa',
+      PRIMARY KEY (ID_Receta),
+      KEY fk_receta_medico (ID_Medico),
+      KEY fk_receta_paciente (ID_Paciente),
+      CONSTRAINT fk_receta_medico FOREIGN KEY (ID_Medico) REFERENCES medicos (ID_Medico),
+      CONSTRAINT fk_receta_paciente FOREIGN KEY (ID_Paciente) REFERENCES usuarios (ID_Usuario)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // TABLA CITAS MÉDICAS
+    await conn.query(`CREATE TABLE IF NOT EXISTS citas_medicas (
+      ID_Cita int(11) NOT NULL AUTO_INCREMENT,
+      ID_Paciente int(11) NOT NULL,
+      ID_Medico int(11) NOT NULL,
+      Fecha date NOT NULL,
+      Hora time NOT NULL,
+      Especialidad varchar(100) DEFAULT NULL,
+      Ubicacion varchar(200) DEFAULT NULL,
+      Motivo text DEFAULT NULL,
+      Estado enum('Pendiente','Confirmada','Completada','Cancelada') DEFAULT 'Pendiente',
+      PRIMARY KEY (ID_Cita),
+      KEY fk_citas_paciente (ID_Paciente),
+      KEY fk_citas_medico (ID_Medico),
+      CONSTRAINT fk_citas_paciente FOREIGN KEY (ID_Paciente) REFERENCES usuarios (ID_Usuario),
+      CONSTRAINT fk_citas_medico FOREIGN KEY (ID_Medico) REFERENCES medicos (ID_Medico)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // TABLA HISTORIAL PACIENTE
+    await conn.query(`CREATE TABLE IF NOT EXISTS historial_paciente (
+      ID_Historial int(11) NOT NULL AUTO_INCREMENT,
+      ID_Paciente int(11) NOT NULL,
+      ID_Receta int(11) NOT NULL,
+      Tipo_Registro enum('Receta','Consulta','Alergia','Diagnostico') NOT NULL,
+      Descripcion text NOT NULL,
+      Fecha_Registro datetime NOT NULL,
+      Notas_Adicionales text DEFAULT NULL,
+      PRIMARY KEY (ID_Historial),
+      KEY fk_historial_paciente (ID_Paciente),
+      KEY fk_historial_receta (ID_Receta),
+      CONSTRAINT fk_historial_paciente FOREIGN KEY (ID_Paciente) REFERENCES usuarios (ID_Usuario),
+      CONSTRAINT fk_historial_receta FOREIGN KEY (ID_Receta) REFERENCES recetas (ID_Receta)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // TABLA NOTIFICACIONES
+    await conn.query(`CREATE TABLE IF NOT EXISTS notificaciones (
+      ID_Notificacion int(11) NOT NULL AUTO_INCREMENT,
+      ID_Usuario int(11) NOT NULL,
+      ID_Receta int(11) NOT NULL,
+      Tipo enum('Recordatorio de medicamento','Cita medica','Alerta de emergencia') NOT NULL,
+      Mensaje text NOT NULL,
+      Fecha_Hora_Programada datetime NOT NULL,
+      Fecha_Hora_Envio datetime DEFAULT NULL,
+      Estado enum('Pendiente','Enviada','Leída') DEFAULT 'Pendiente',
+      PRIMARY KEY (ID_Notificacion),
+      KEY fk_notif_usuario (ID_Usuario),
+      KEY fk_notif_receta (ID_Receta),
+      CONSTRAINT fk_notif_usuario FOREIGN KEY (ID_Usuario) REFERENCES usuarios (ID_Usuario),
+      CONSTRAINT fk_notif_receta FOREIGN KEY (ID_Receta) REFERENCES recetas (ID_Receta)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // TABLA FAMILIARES
+    await conn.query(`CREATE TABLE IF NOT EXISTS familiares (
+      ID_Familiar int(11) NOT NULL AUTO_INCREMENT,
+      Nombre varchar(100) NOT NULL,
+      Apellidos varchar(100) NOT NULL,
+      Relacion varchar(50) DEFAULT NULL,
+      Telefono varchar(20) DEFAULT NULL,
+      Correo varchar(150) DEFAULT NULL,
+      PRIMARY KEY (ID_Familiar)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // TABLA USUARIO_FAMILIAR
+    await conn.query(`CREATE TABLE IF NOT EXISTS usuario_familiar (
+      ID_Usuario int(11) NOT NULL,
+      ID_Familiar int(11) NOT NULL,
+      PRIMARY KEY (ID_Usuario,ID_Familiar),
+      KEY fk_uf_familiar (ID_Familiar),
+      CONSTRAINT fk_uf_familiar FOREIGN KEY (ID_Familiar) REFERENCES familiares (ID_Familiar),
+      CONSTRAINT fk_uf_usuario FOREIGN KEY (ID_Usuario) REFERENCES usuarios (ID_Usuario)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // INSERTAR MÉDICO DE PRUEBA
+    await conn.query(`INSERT IGNORE INTO medicos 
+      (Nombre, Apellidos, Especialidad, Cedula_Profesional, Correo, Telefono, Contraseña, Horario_Consulta) 
+      VALUES ('Juan', 'Pérez García', 'Medicina General', 'CP123456', 'doctor@test.com', '555-1234', '123456', 'Lunes a Viernes 8:00 - 16:00')`);
+
+    console.log('✅ Base de datos COMPLETA inicializada con 8 tablas');
+    
+    res.json({ 
+      success: true, 
+      message: '✅ Base de datos COMPLETA inicializada exitosamente',
+      tables: ['usuarios', 'medicos', 'recetas', 'citas_medicas', 'historial_paciente', 'notificaciones', 'familiares', 'usuario_familiar']
+    });
+    
+  } catch (error) {
+    console.error('❌ Error inicializando BD:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  } finally {
+    if (conn) conn.release();
+  }
+});
 // ✅ PUERTO PARA PRODUCCIÓN
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {

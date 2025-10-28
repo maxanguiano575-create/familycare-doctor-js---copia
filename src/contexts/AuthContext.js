@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setError(''); // Limpiar error anterior
-      const response = await fetch('http://localhost:3001/api/login', {
+const response = await fetch('https://familycare-doctor-js-copia-production.up.railway.app/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
